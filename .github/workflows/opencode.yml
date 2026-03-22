@@ -26,18 +26,17 @@ jobs:
       )
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 固定到 v6.0.2
-        with:
-          persist-credentials: false
 
       - name: Run opencode
         uses: anomalyco/opencode/github@b15fb211917de83b39d9ec3a1d66ae4353d1e6e0
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: openrouter/google/gemini-3.1-pro-preview
