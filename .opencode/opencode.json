@@ -10,13 +10,21 @@
       },
       "models": {
         "qwen3.5-plus": {
-          "name": "Qwen3.5 Plus"
+          "name": "Qwen3.5 Plus",
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          }
         },
         "glm-5": {
           "name": "GLM-5"
         },
         "kimi-k2.5": {
-          "name": "Kimi K2.5"
+          "name": "Kimi K2.5",
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          }
         },
         "MiniMax-M2.5": {
           "name": "MiniMax M2.5"
