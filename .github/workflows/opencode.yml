@@ -45,9 +45,8 @@ jobs:
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:
-          OPENAI_API_KEY: ${{ secrets.ALIBABA_CODING_PLAN_API_KEY }}
-          OPENAI_BASE_URL: https://coding.dashscope.aliyuncs.com/v1
+          ALIBABA_CODING_PLAN_API_KEY: ${{ secrets.ALIBABA_CODING_PLAN_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: openai/qwen3.5-plus
+          model: alibaba-coding-plan/qwen3.5-plus
           use_github_token: true
