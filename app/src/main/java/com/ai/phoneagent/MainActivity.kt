@@ -4369,7 +4369,7 @@ class MainActivity : AppCompatActivity() {
             if (actionArea != null && actionArea.visibility != View.VISIBLE) {
                 actionArea.visibility = View.VISIBLE
             }
-        }
+}
     }
 
     /**
