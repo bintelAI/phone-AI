@@ -58,16 +58,19 @@ const val maxCacheSize = 3
 const val screenshotQuality = 75
 ```
 
-#### 1.1.4 私有属性命名
+#### 1.1.4 属性命名（Backing Property 约定）
 
 ```kotlin
-// ✅ 正确：下划线开头
-private val _context: Context
-private val _isBound = false
+// ✅ 正确：在暴漏公开只读属性时，私有的可变（或备用）属性使用下划线开头
+private val _context: MutableLiveData<Context> = MutableLiveData()
+val context: LiveData<Context> get() = _context
 
-// ❌ 错误：无下划线
-private val context: Context
+// ✅ 正确：普通私有属性直接用驼峰命名，不加下划线
 private val isBound = false
+private val cache = ScreenshotCache()
+
+// ❌ 错误：滥用下划线前缀
+private val _isBound = false
 ```
 
 ### 1.2 文件注释规范
@@ -198,6 +201,11 @@ class PhoneAgentService {
 try {
     val result = service.getUiHierarchy()
     return result
+} catch (e: IllegalStateException) {
+    Log.e(TAG, "UI获取失败", e)
+    return null
+}
+```
 } catch (e: AccessibilityServiceException) {
     AppLogger.e(TAG, "无障碍服务异常", e)
     return null
@@ -821,6 +829,6 @@ cd phone-agent
 
 ---
 
-**文档版本**：v1.3
-**最后更新**：2026-02-28
+**文档版本**：v1.2
+**最后更新**：2026-04-11
 **维护人**：ZG0704666
