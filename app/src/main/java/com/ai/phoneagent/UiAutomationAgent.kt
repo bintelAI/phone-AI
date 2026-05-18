@@ -25,6 +25,10 @@ import com.ai.phoneagent.core.executor.ActionExecutor
 import com.ai.phoneagent.core.parser.ActionParser
 import com.ai.phoneagent.core.templates.PromptTemplates
 import com.ai.phoneagent.core.utils.ActionUtils
+import com.ai.phoneagent.data.model.ChatContent
+import com.ai.phoneagent.data.model.ContentPart
+import com.ai.phoneagent.data.model.ImageUrl
+import com.ai.phoneagent.data.preferences.AppPreferencesRepository
 import com.ai.phoneagent.net.AutoGlmClient
 import com.ai.phoneagent.net.ChatRequestMessage
 import com.ai.phoneagent.net.LocalMnnInferenceEngine
@@ -66,6 +70,7 @@ class UiAutomationAgent(
     // Tap+Type 合并执行状态
     private var lastActionWasTap = false
     private var lastTapAction: ParsedAgentAction? = null
+    private val appPreferencesRepository by lazy { AppPreferencesRepository(appContext.applicationContext) }
 
     private fun hasNonEmptyDesc(action: ParsedAgentAction): Boolean {
         val desc = action.fields["desc"] ?: action.fields["description"]
@@ -182,7 +187,8 @@ class UiAutomationAgent(
         }
 
         // 虚拟屏模式：启动预览悬浮窗
-        if (config.useBackgroundVirtualDisplay && VirtualDisplayController.isVirtualDisplayStarted()
+        if (config.useBackgroundVirtualDisplay &&
+                VirtualDisplayController.isVirtualDisplayStarted()
         ) {
             onLog("【虚拟屏模式】启动预览悬浮窗...")
             val ctx = service ?: appContext
@@ -241,7 +247,8 @@ class UiAutomationAgent(
             // 严格隔离模式：截图阶段不抢焦点，避免主屏返回键误作用到虚拟屏
 
             // 并行获取截图和UI树
-            if (config.useShizukuInteraction && !ENABLE_SHIZUKU_UI_TREE) {
+            val isPlainShizukuMode = config.useShizukuInteraction && !config.useBackgroundVirtualDisplay
+            if (isPlainShizukuMode && !ENABLE_SHIZUKU_UI_TREE) {
                 onLog("[Step $step] Shizuku UI树采集已禁用，将仅靠截图解析")
             }
             val shizukuUiDump =
@@ -266,14 +273,17 @@ class UiAutomationAgent(
                                 ?: throw IllegalStateException("无障碍服务未连接，无法读取 UI 树")
                     }
             val screenshot = screenshotManager?.getOptimizedScreenshot(service)
-            if (config.useShizukuInteraction && ENABLE_SHIZUKU_UI_TREE && shizukuUiDump == null) {
+            if (isPlainShizukuMode && ENABLE_SHIZUKU_UI_TREE && shizukuUiDump == null) {
                 onLog("[Step $step] Shizuku UI 层级读取失败，降级为截图驱动")
             }
-            if (config.useShizukuInteraction && screenshot == null) {
+            if (isPlainShizukuMode && screenshot == null) {
                 onLog("[Step $step] Shizuku 模式未获取到截图，继续仅使用 UI 树分析")
             }
-            if (config.useShizukuInteraction && screenshot == null && shizukuUiDump == null) {
+            if (isPlainShizukuMode && screenshot == null && shizukuUiDump == null) {
                 return AgentResult(false, "Shizuku 截图与UI层级均不可用，请先解锁屏幕并保持前台后重试", step)
+            }
+            if (config.useBackgroundVirtualDisplay && screenshot == null) {
+                return AgentResult(false, "虚拟屏截图不可用：目标应用可能未进入虚拟屏或虚拟屏尚未产生有效画面", step)
             }
 
             // 更新进度
@@ -306,21 +316,20 @@ class UiAutomationAgent(
                     }
 
             // 构建消息内容
-            val userContent: Any =
+            val userContent: ChatContent =
                     if (screenshot != null) {
-                        listOf(
-                                mapOf(
-                                        "type" to "image_url",
-                                        "image_url" to
-                                                mapOf(
-                                                        "url" to
-                                                                "data:${screenshot.mimeType};base64,${screenshot.base64Png}"
+                        ChatContent.Multimodal(
+                                listOf(
+                                        ContentPart.ImageUrlPart(
+                                                ImageUrl(
+                                                        "data:${screenshot.mimeType};base64,${screenshot.base64Png}"
                                                 )
-                                ),
-                                mapOf("type" to "text", "text" to userMsg)
+                                        ),
+                                        ContentPart.TextPart(userMsg)
+                                )
                         )
                     } else {
-                        userMsg
+                        ChatContent.Text(userMsg)
                     }
 
             // 修剪历史
@@ -374,7 +383,7 @@ class UiAutomationAgent(
             // 解析思考和回答
             val (thinking, answer) = actionParser.parseWithThinking(finalReply)
             if (!thinking.isNullOrBlank()) {
-                onLog("[Step $step] 思考：${thinking.take(config.logThinkingTruncateLength)}")
+                onLog("[Step $step] 思考：$thinking")
                 if (step == 1) {
                     val estimatedSteps = actionParser.parseEstimatedSteps(thinking)
                     if (estimatedSteps > 0) {
@@ -587,7 +596,7 @@ class UiAutomationAgent(
 
                 val (fixThinking, fixAnswer) = actionParser.parseWithThinking(fixFinal)
                 if (!fixThinking.isNullOrBlank()) {
-                    onLog("[Step $step] 修复思考：${fixThinking.take(config.logThinkingTruncateLength)}")
+                    onLog("[Step $step] 修复思考：$fixThinking")
                 }
                 onLog("[Step $step] 修复输出：${fixAnswer.take(config.logAnswerTruncateLength)}")
                 history += ChatRequestMessage(role = "assistant", content = fixFinal)
@@ -736,13 +745,16 @@ class UiAutomationAgent(
                 if (config.useBackgroundVirtualDisplay &&
                                 VirtualDisplayController.isVirtualDisplayStarted()
                 ) {
-                    // 虚拟屏模式：启动到虚拟屏（不切换系统焦点）
+                    // 虚拟屏模式：用 Shizuku 直接启动到目标 display。
+                    // 禁止回退到透明跳板 Activity，避免扰动主屏 Aries 的 Activity 栈。
                     val displayId = VirtualDisplayController.getDisplayId() ?: -1
-                    LaunchProxyActivity.launchOnDisplay(service, intent, displayId)
+                    val launched = launchAppViaShizuku(resolvedPackage, displayId, onLog)
+                    if (!launched) {
+                        onLog("[⚡快速启动] 虚拟屏启动失败，已阻止主屏跳板兜底")
+                        return false
+                    }
                     onLog("[⚡快速启动] 虚拟屏启动 ${matchedAppName}（displayId=$displayId）")
                     delay(config.appLaunchExtraDelayMs + 500) // 虚拟屏启动需要稍长时间
-                    // 启动完成后立即把系统焦点还给主屏（系统可能因 Activity 创建自动切焦）
-                    VirtualDisplayController.restoreFocusToDefaultDisplayNow()
                 } else {
                     // 前台模式
                     LaunchProxyActivity.launch(service, intent)
@@ -769,9 +781,6 @@ class UiAutomationAgent(
                         }
                 val launched = launchAppViaShizuku(resolvedPackage, targetDisplayId, onLog)
                 if (!launched) return false
-                if (targetDisplayId > 0) {
-                    VirtualDisplayController.restoreFocusToDefaultDisplayNow()
-                }
                 onLog("[⚡快速启动] Shizuku 启动 ${matchedAppName} 成功")
                 delay(config.appLaunchExtraDelayMs)
             } else {
@@ -1135,8 +1144,7 @@ class UiAutomationAgent(
     ): kotlin.Result<String> {
         val maxAttempts = (config.maxModelRetries + 1).coerceAtLeast(1)
         var lastErr: Throwable? = null
-        val appPrefs = appContext.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val useLocalModel = appPrefs.getBoolean("api_use_local_model", false)
+        val useLocalModel = appPreferencesRepository.getApiUseLocalModelBlocking()
 
         if (useLocalModel && !ModelScopeModelDownloader.isQwen35ModelReady(appContext)) {
             return kotlin.Result.failure(
@@ -1199,11 +1207,16 @@ class UiAutomationAgent(
         // 移除图片只保留文本
         for (i in history.indices) {
             val msg = history[i]
-            if (msg.content is List<*>) {
-                @Suppress("UNCHECKED_CAST") val content = msg.content as List<Map<String, Any>>
-                val textOnly = content.filter { it["type"] == "text" }
-                if (textOnly.isNotEmpty()) {
-                    history[i] = ChatRequestMessage(role = msg.role, content = textOnly)
+            val content = msg.content
+            if (content is ChatContent.Multimodal) {
+                val textParts = content.parts.filterIsInstance<ContentPart.TextPart>()
+                if (textParts.isNotEmpty()) {
+                    val combinedText = textParts.joinToString("\n") { it.text }
+                    history[i] =
+                            ChatRequestMessage(
+                                    role = msg.role,
+                                    content = ChatContent.Text(combinedText)
+                            )
                 }
             }
         }

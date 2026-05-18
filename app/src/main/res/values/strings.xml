@@ -3,19 +3,41 @@
     <string name="app_title">Aries AI</string>
     <string name="status_ready">语音模型已就绪</string>
     <string name="status_disconnected">未连接模型</string>
-    <string name="input_hint">请输入你的问题…</string>
+    <string name="status_connected">已连接模型</string>
+    <string name="status_connected_with_voice">已连接模型 | 语音模型已就绪</string>
+    <string name="status_disconnected_short">未连接</string>
+    <string name="status_disconnected_with_voice">未连接 | 语音模型已就绪</string>
+    <string name="status_checking">检查中...</string>
+    <string name="status_checking_with_voice">已配置语音模型 | API 检查中...</string>
+    <string name="common_copy">复制</string>
+    <string name="common_edit">编辑</string>
+    <string name="input_hint">让 Aries AI 帮你操作手机</string>
     <string name="voice_input">语音输入</string>
+    <string name="input_attachment">附件</string>
+    <string name="input_attachment_ready">已添加附件</string>
+    <string name="input_switch_keyboard">切换键盘</string>
+    <string name="input_hold_to_talk">按住说话</string>
+    <string name="input_stop_generating">终止生成</string>
+    <string name="voice_status_listening">正在聆听</string>
+    <string name="voice_status_recognizing">正在识别</string>
+    <string name="voice_release_to_cancel">松开取消</string>
+    <string name="voice_release_to_send">松开输入，上滑取消</string>
     <string name="send">发送</string>
     <string name="ai_generated_notice">内容由AI生成</string>
+    <string name="chat_server_busy">当前服务器访问量过高，请稍后再试</string>
     <string name="retry">重试</string>
     <string name="retrying">重试中...</string>
     <string name="automation_confirm">确认</string>
     <string name="automation_confirming">执行中...</string>
     <string name="automation_confirmed">已执行</string>
+    <string name="automation_rejected">已拒绝</string>
     <string name="automation_terminate">终止任务</string>
     <string name="automation_terminating">终止中...</string>
     <string name="automation_terminate_requested">已请求终止任务</string>
+    <string name="automation_done">已执行</string>
+    <string name="automation_retry">重试</string>
     <string name="automation_start_now">立即开始</string>
+    <string name="automation_execute_now">去执行</string>
     <string name="automation_not_ready_short">未就绪</string>
     <string name="automation_confirm_hint">检测到自动化任务，请点击确认按钮执行</string>
     <string name="automation_dispatched">已转交自动化执行</string>
@@ -23,19 +45,82 @@
     <string name="automation_scene_title">自动化</string>
     <string name="automation_scene_need_confirm">需求待确认</string>
     <string name="automation_scene_confirmed">需求已确认</string>
+    <string name="automation_scene_rejected">需求已拒绝</string>
     <string name="automation_scene_not_ready">系统未就绪</string>
+    <string name="automation_setup_go_enable">去开启</string>
+    <string name="automation_setup_enable_accessibility">一键开启无障碍</string>
+    <string name="automation_setup_accessibility_enabled">已通过 Shizuku 自动开启无障碍服务</string>
     <string name="automation_scene_running">执行中</string>
     <string name="automation_scene_finished">已结束</string>
     <string name="automation_scene_waiting">等待执行日志...</string>
-    <string name="automation_toolbar_title">Aries AI 自动化控制台</string>
+    <string name="automation_scene_collapse">收起自动化面板</string>
+    <string name="automation_scene_expand">展开自动化面板</string>
+    <string name="message_user_label">你</string>
+    <string name="message_thinking_label">思考</string>
+    <string name="message_streaming_label">生成中</string>
+    <string name="message_streaming_placeholder">正在思考...</string>
+    <string name="message_connecting_placeholder">连接中</string>
+    <string name="message_local_inference_waiting">本地推理中，请等待</string>
+    <string name="transcript_empty_hint">描述任务目标，Aries 会理解并执行操作</string>
+    <string name="transcript_empty_suggestion_title">你可以试着说</string>
+    <string name="transcript_empty_suggestion_subtitle">点一下即可填入输入框，直接发起自动化任务</string>
+    <string name="transcript_empty_brand_tagline">开启手机智能新交互时代</string>
+    <string name="transcript_empty_brand_caption">一句话帮你完成订票、点外卖、发消息等操作</string>
+    <string name="transcript_suggestion_open_wechat_label">打开并搜索</string>
+    <string name="transcript_suggestion_summarize_page_label">总结当前页面</string>
+    <string name="transcript_suggestion_set_alarm_label">设置明早闹钟</string>
+    <string name="transcript_suggestion_open_wechat">打开微信并搜索联系人</string>
+    <string name="transcript_suggestion_summarize_page">截图并总结当前页面</string>
+    <string name="transcript_suggestion_set_alarm">帮我设置明天 8 点闹钟</string>
+    <string-array name="transcript_suggestion_examples">
+        <item>帮我订明天去上海的高铁票</item>
+        <item>点一杯美式咖啡，少冰，外卖</item>
+        <item>找一家附近评分最高的火锅店，订明晚的4人座</item>
+    </string-array>
+    <string name="automation_toolbar_title">自动化设置</string>
+    <string name="automation_console_overview_title">自动化控制中心</string>
+    <string name="automation_console_overview_subtitle">先确认通道状态，再选择执行方式并发起任务。</string>
+    <string name="automation_console_runtime_title">运行概览</string>
+    <string name="automation_console_runtime_subtitle">当前可用性、交互通道与虚拟屏状态会集中显示在这里。</string>
+    <string name="automation_console_interaction_mode_label">交互通道</string>
+    <string name="automation_console_mode_subtitle">根据任务场景选择当前屏幕执行，或切换到后台虚拟屏隔离运行。</string>
+    <string name="automation_console_shizuku_subtitle">启用后优先通过 Shizuku 辅助完成授权和交互链路。</string>
+    <string name="automation_console_auto_approve_subtitle">在主页场景下自动确认自动化任务，减少重复点击。</string>
+    <string name="automation_console_task_subtitle">输入一段明确目标，自动化会按步骤拆解并执行。</string>
+    <string name="automation_console_recommend_title">推荐任务</string>
+    <string name="automation_console_recommend_action">填入</string>
+    <string name="automation_console_controls_title">执行控制</string>
+    <string name="automation_console_controls_subtitle">开始任务后，可随时暂停、继续或终止当前流程。</string>
+    <string name="automation_console_log_subtitle">这里会持续输出自动化执行进度与关键反馈。</string>
+    <string name="automation_console_mode_selected">当前已选中</string>
+    <string name="automation_refresh_status">刷新状态</string>
     <string name="automation_execution_mode_label">执行模式</string>
+    <string name="automation_execution_background_experimental">后台执行（实验性）</string>
+    <string name="automation_execution_background_experimental_summary">关闭时前台执行，开启后通过依赖 Shizuku 的虚拟屏后台执行</string>
     <string name="automation_execution_front_mode">前端执行（当前屏幕可见）</string>
     <string name="automation_mode_description_front">在前台屏幕执行自动化任务，您可以看到操作过程</string>
     <string name="automation_virtual_display_status_default">虚拟屏状态：未初始化</string>
+    <string name="automation_virtual_display_status_label">虚拟屏状态</string>
+    <string name="automation_virtual_display_status_creating">虚拟屏状态：正在创建...</string>
+    <string name="automation_virtual_display_status_running">虚拟屏状态：已启动（displayId=%1$s）</string>
+    <string name="automation_virtual_display_status_failed">虚拟屏状态：创建失败</string>
+    <string name="automation_virtual_display_status_preparing">虚拟屏：准备中...</string>
+    <string name="automation_virtual_display_status_not_started">虚拟屏：未启动</string>
+    <string name="automation_virtual_display_status_running_detail">虚拟屏：运行中 | ID=%1$s | %2$s</string>
+    <string name="automation_virtual_display_status_error">虚拟屏：错误 - %1$s</string>
     <string name="automation_shizuku_mode_label">Shizuku 模式</string>
     <string name="automation_task_confirm_label">任务指令确认</string>
+    <string name="automation_card_title">Aries自动化</string>
     <string name="automation_task_hint">在此输入或录入您的任务指令...</string>
+    <string name="automation_task_hint_not_ready">请先满足当前模式的连接条件后再开始</string>
+    <string name="automation_action_launch">Launch</string>
+    <string name="automation_action_tap">点击</string>
+    <string name="automation_action_back">返回</string>
+    <string name="automation_action_input">输入</string>
+    <string name="automation_action_swipe">滑动</string>
+    <string name="automation_actions_more">+ %1$d</string>
     <string name="automation_pause">暂停</string>
+    <string name="automation_resume">继续</string>
     <string name="automation_stop">停止</string>
     <string name="automation_log_system_label">运行日志系统</string>
     <string name="automation_log_default">系统已就绪，等待指令输入...</string>
@@ -44,13 +129,41 @@
     <string name="automation_status_label">系统状态</string>
     <string name="automation_accessibility_status_default">无障碍服务：未启用</string>
     <string name="automation_execution_background_mode">后台执行（虚拟屏隔离）</string>
+    <string name="automation_mode_description_background">在后台虚拟屏执行自动化任务，不影响前台操作</string>
     <string name="automation_recommend_task_default">点击尝试：查看当前电池状态</string>
     <string name="automation_open_accessibility">去开启</string>
-    <string name="automation_one_tap_shizuku_authorize">一键 Shizuku 授权</string>
+    <string name="automation_one_tap_shizuku_authorize">一键授权</string>
+    <string name="automation_auto_approve_label">主页自动确认（10 秒）</string>
+    <string name="automation_confirm_countdown">确认（%1$d秒）</string>
     <string name="automation_shizuku_not_connected">未检测到 Shizuku 服务连接</string>
     <string name="automation_shizuku_permission_requested">已发起 Shizuku 授权请求，请在弹窗中确认</string>
     <string name="automation_shizuku_authorize_success">已通过 Shizuku 自动开启无障碍</string>
     <string name="automation_shizuku_authorize_failed">Shizuku 自动开启无障碍失败，请手动开启</string>
+    <string name="automation_status_accessibility_connected">无障碍：已连接</string>
+    <string name="automation_status_accessibility_enabled_waiting">无障碍：已开启（等待连接）</string>
+    <string name="automation_status_accessibility_disabled">无障碍：未开启</string>
+    <string name="automation_status_shizuku_ready">Shizuku：已连接并授权</string>
+    <string name="automation_status_shizuku_waiting_permission">Shizuku：已连接（待授权）</string>
+    <string name="automation_status_shizuku_disconnected">Shizuku：未连接</string>
+    <string name="automation_status_summary_ready">已就绪：可开始执行</string>
+    <string name="automation_status_summary_need_background_shizuku">未就绪：后台执行依赖 Shizuku</string>
+    <string name="automation_status_summary_need_shizuku_connection">未就绪：Shizuku 未连接</string>
+    <string name="automation_status_summary_need_shizuku_permission">未就绪：Shizuku 未授权</string>
+    <string name="automation_status_summary_need_accessibility_enabled">未就绪：无障碍未开启</string>
+    <string name="automation_status_summary_need_accessibility_connection">未就绪：无障碍连接中</string>
+    <string name="automation_status_summary_shizuku_detected">未就绪：仅检测到 Shizuku，请开启 Shizuku 模式</string>
+    <string name="automation_status_summary_need_accessibility_generic">未就绪：无障碍未连接</string>
+    <string name="automation_status_mode_shizuku">当前交互：Shizuku 模式</string>
+    <string name="automation_status_mode_accessibility">当前交互：无障碍模式</string>
+    <string name="automation_status_accessibility_short_label">无障碍</string>
+    <string name="automation_status_shizuku_short_label">Shizuku</string>
+    <string name="automation_background_requires_shizuku">后台执行依赖 Shizuku 虚拟屏，请先连接 Shizuku</string>
+    <string name="automation_background_requires_shizuku_permission">后台执行依赖 Shizuku 授权，已发起授权请求，请确认后重试</string>
+    <string-array name="automation_recommend_tasks">
+        <item>打开大众点评帮我预订一个明天中午 1 点的附近火锅店，2 个人</item>
+        <item>打开 12306 订一张明天南京到北京的票，选择最便宜的</item>
+        <item>打开航旅纵横订一张明天从南京飞往成都的机票</item>
+    </string-array>
 
     <string name="accessibility_service_label">Aries AI 自动化</string>
     <string name="accessibility_service_desc">用于执行点击/滑动/返回等自动化动作（需要在系统无障碍中手动开启）</string>
@@ -63,10 +176,6 @@
     <string name="about_check_updates">检查更新</string>
     <string name="about_checking_updates">检查中...</string>
     <string name="about_changelog">更新日志</string>
-    <string name="about_ux_program">用户体验改进计划</string>
-    <string name="about_ux_program_desc">参与计划，帮助我们改善体验（参与即表示同意隐私政策相关补充条款）</string>
-    <string name="about_ux_program_joined">已加入用户体验改进计划，感谢您的支持！</string>
-    <string name="about_ux_program_exited">已退出用户体验改进计划</string>
     <string name="about_open_source_licenses">开源许可声明</string>
     <string name="about_website">访问官网</string>
     <string name="about_website_domain">aries-agent.com</string>
@@ -124,11 +233,10 @@
         1. 您应确保自身的使用行为合法合规，不得将本项目用于任何违法、侵权、商业盈利、自动化大规模操作或其他违反开源协议的用途。<br/>
         2. 您不得将本项目用于开发、运营或协助第三方提供商业化服务，除非获得开发者的书面授权。<br/>
         3. 因您违反本协议或相关法律法规而导致的任何第三方索赔、损失或费用，均由您自行承担。<br/><br/>
-        <b>四、隐私政策与用户体验改进计划</b><br/>
-        1. 本项目尊重并保护用户隐私。除非另有说明，本项目不会主动收集、存储或上传您的个人信息，所有核心AI交互数据仅在本地设备处理。<br/>
-        2. <b>加入用户体验改进计划与预发布版（灰度测试）</b>：如果您自主选择加入我们的改进计划，或者使用预发布（灰度测试）版本，本项目将收集一些非身份识别信息（如设备型号、系统版本号、崩溃日志以及基础的使用频率信息）。这旨在帮助我们发现、修复漏洞并进一步改善用户体验。我们承诺，绝不包含您的本地文件、对话内容或其他核心隐私文件。您可以在应用内的“关于”页面随时关闭或开启该计划的参与状态。<br/>
-        3. 本项目不会将您的数据用于任何未经授权的商业化出售，也不会与无关的第三方共享您的个人信息。<br/>
-        4. 您有权随时查阅本项目的隐私政策，建议定期关注相关内容。<br/><br/>
+        <b>四、隐私政策</b><br/>
+        1. 本项目尊重并保护用户隐私。除非另有说明，本项目不会主动收集、存储或上传您的个人信息，所有数据仅在本地设备处理。<br/>
+        2. 本项目不会将您的数据用于任何未经授权的用途，也不会与第三方共享您的个人信息，除非法律法规要求或获得您的明确同意。<br/>
+        3. 您有权随时查阅本项目的隐私政策，建议定期关注相关内容。<br/><br/>
         <b>五、协议的变更与终止</b><br/>
         1. 开发者有权根据实际情况随时修改本协议条款，修改后的协议将在本项目内公示或以其他适当方式通知用户。若您继续使用本项目，则视为接受修改后的协议。<br/>
         2. 若您违反本协议，开发者有权随时中止或终止您对本项目的使用权利。<br/><br/>
@@ -178,4 +286,172 @@
     <string name="onboarding_welcome_title">欢迎使用 Aries AI</string>
     <string name="onboarding_welcome_desc">开始前，请先阅读用户协议并完成首次权限设置。</string>
     <string name="onboarding_welcome_action">继续</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_search_hint">搜索设置</string>
+    <string name="settings_search_results">搜索结果</string>
+    <string name="settings_search_empty">没有匹配的设置项</string>
+    <string name="settings_section_appearance">外观</string>
+    <string name="settings_section_model_automation">模型与自动化</string>
+    <string name="settings_section_about">关于</string>
+    <string name="settings_entry_appearance_title">外观设置</string>
+    <string name="settings_entry_appearance_subtitle">主题、界面密度与显示风格</string>
+    <string name="settings_entry_model_api_title">模型与 API 配置</string>
+    <string name="settings_entry_model_api_subtitle">远程 API、本地模型与连接检查</string>
+    <string name="settings_entry_automation_title">自动化设置</string>
+    <string name="settings_entry_automation_subtitle">后台执行、权限与连接状态</string>
+    <string name="settings_entry_about_title">关于</string>
+    <string name="settings_entry_about_subtitle">版本信息、开源许可与说明</string>
+    <string name="settings_appearance_coming_soon">外观设置入口即将开放</string>
+    <string name="settings_section_api">模型与 API</string>
+    <string name="settings_api_description">优先在这里完成远程 API 或本地模型的接入配置。</string>
+    <string name="settings_model_api_summary_title">接入概览</string>
+    <string name="settings_model_api_summary_subtitle">按当前接入方式组织远程 API、本地模型与连接检查配置。</string>
+    <string name="settings_model_api_mode_title">选择接入方式</string>
+    <string name="settings_model_api_mode_subtitle">先确定当前使用的链路，再填写该模式真正需要的配置。</string>
+    <string name="settings_model_api_mode_official">智谱官方 API</string>
+    <string name="settings_model_api_mode_official_description">使用内置官方接入路径，适合直接填写智谱 API Key 后快速开始。</string>
+    <string name="settings_model_api_mode_third_party">第三方兼容 API</string>
+    <string name="settings_model_api_mode_third_party_description">接入 OpenAI 兼容服务时，可单独配置 Base URL 与模型名称。</string>
+    <string name="settings_model_api_mode_local">本地模型优先</string>
+    <string name="settings_model_api_mode_local_description">优先走本地模型链路，适合离线或自建推理场景。</string>
+    <string name="settings_model_api_remote_title">远程 API</string>
+    <string name="settings_model_api_remote_subtitle">配置 API Key，并在需要时切换到第三方兼容接口。</string>
+    <string name="settings_model_api_key_placeholder">输入或粘贴可用的 API Key</string>
+    <string name="settings_model_api_get_key_short">获取 Key</string>
+    <string name="settings_model_api_third_party_switch_subtitle">打开后可自定义 OpenAI 兼容服务地址与模型。</string>
+    <string name="settings_model_api_local_title">本地模型</string>
+    <string name="settings_model_api_local_subtitle">下载并启用本地模型后，可将任务切换到本地推理链路。</string>
+    <string name="settings_model_api_local_switch_subtitle">启用后优先使用本地模型；未就绪时请先下载模型文件。</string>
+    <string name="settings_model_api_local_note_title">本地模型说明</string>
+    <!-- Aries API -->
+    <string name="settings_model_api_aries_title">Aries API</string>
+    <string name="settings_model_api_aries_subtitle">使用 sso.aries.org.cn 登录后自动接入 api.aries.org.cn。</string>
+    <string name="settings_model_api_aries_switch">使用 Aries API</string>
+    <string name="settings_model_api_aries_switch_subtitle">启用后将自动切换到 Aries 官方托管服务。</string>
+    <string name="settings_model_api_aries_mode">Aries 托管 API</string>
+    <string name="settings_model_api_aries_mode_description">先登录 Aries 通行证，再自动登录 Aries API 并获取调用令牌。</string>
+    <string name="settings_model_api_aries_membership">升级会员</string>
+    <string name="settings_model_api_aries_membership_subtitle">解锁更多额度与高级功能</string>
+    <string name="settings_model_api_aries_login">使用 Aries SSO 登录</string>
+    <string name="settings_model_api_aries_logged_in">已登录：%1$s</string>
+    <string name="settings_model_api_aries_logout">退出 Aries 账号</string>
+    <string name="settings_model_api_aries_ready">Aries 账号已就绪</string>
+    <string name="settings_model_api_aries_login_required">请先登录 Aries 账号</string>
+
+    <!-- Aries 登录对话框 -->
+    <string name="aries_login_dialog_title">登录 Aries 账号</string>
+    <string name="aries_login_username_label">用户名</string>
+    <string name="aries_login_password_label">密码</string>
+    <string name="aries_login_confirm">登录</string>
+    <string name="aries_login_fields_required">请填写用户名和密码</string>
+    <string name="aries_login_success">已登录 %1$s</string>
+    <string name="aries_login_failed">Aries SSO 登录失败，请稍后重试</string>
+    <string name="aries_sso_user_display">Aries SSO</string>
+    <string name="aries_logout_success">已退出登录</string>
+    <string name="aries_api_section_unlocked">隐藏模型入口已显示</string>
+    <string name="aries_api_section_locked">隐藏模型入口已隐藏</string>
+    <string name="aries_model_select_title">选择模型</string>
+    <string name="aries_model_change">更换模型</string>
+    <string name="aries_current_model">模型：%1$s</string>
+
+    <!-- Membership -->
+    <string name="membership_title">Aries 会员</string>
+    <string name="membership_tier_basic">基础版</string>
+    <string name="membership_tier_basic_price">免费</string>
+    <string name="membership_tier_basic_desc">体验 Aries 基础功能</string>
+    <string name="membership_tier_pro">专业版</string>
+    <string name="membership_tier_pro_price">¥29/月</string>
+    <string name="membership_tier_pro_desc">解锁全部模型与高级自动化</string>
+    <string name="membership_tier_ultimate">旗舰版</string>
+    <string name="membership_tier_ultimate_price">¥9999/月</string>
+    <string name="membership_tier_ultimate_desc">无限额度，专属模型与优先支持</string>
+    <string name="membership_feature_daily_tasks">点数</string>
+    <string name="membership_feature_basic_value">10 点/天</string>
+    <string name="membership_feature_pro_value">200 点/天</string>
+    <string name="membership_feature_ultimate_value">无限点/天</string>
+    <string name="membership_feature_models">可用模型</string>
+    <string name="membership_feature_basic_models">基础模型</string>
+    <string name="membership_feature_pro_models">全部模型</string>
+    <string name="membership_feature_ultimate_models">全部模型 + 旗舰模型</string>
+    <string name="membership_feature_automation">自动化功能</string>
+    <string name="membership_feature_basic_automation">基础自动化</string>
+    <string name="membership_feature_pro_automation">高级自动化</string>
+    <string name="membership_feature_ultimate_automation">高级自动化 + 批量任务</string>
+    <string name="membership_feature_support">技术支持</string>
+    <string name="membership_feature_basic_support">社区支持</string>
+    <string name="membership_feature_pro_support">邮件支持</string>
+    <string name="membership_feature_ultimate_support">1 对 1 专属支持</string>
+    <string name="membership_current_plan">当前方案</string>
+    <string name="membership_subscribe">订阅</string>
+
+    <string name="settings_model_api_action_title">连接检查</string>
+    <string name="settings_model_api_action_subtitle">完成配置后在这里检查当前模型与 API 链路是否可用。</string>
+    <string name="settings_model_api_status_title">当前连接状态</string>
+    <string name="drawer_api_base_url_label">API Base URL</string>
+    <string name="drawer_api_base_url_hint">例如：https://api.openai.com/v1</string>
+    <string name="drawer_api_model_label">模型名称</string>
+    <string name="drawer_api_model_hint">例如：gpt-4.1-mini</string>
+    <string name="settings_section_actions">更多入口</string>
+    <string name="settings_open_automation">打开自动化控制面板</string>
+    <string name="settings_open_about">打开关于页面</string>
+    <string name="settings_clipboard_empty">剪贴板中没有可用内容</string>
+    <string name="settings_api_key_pasted">已粘贴 API Key</string>
+    <string name="settings_api_key_required">请先输入 API Key</string>
+    <string name="settings_api_key_missing_entry">请先在设置中配置 API Key</string>
+    <string name="settings_api_available">API 连接可用</string>
+    <string name="settings_api_failed">API 连接失败</string>
+    <string name="settings_api_unsafe">当前 API 地址不可用</string>
+    <string name="settings_api_checking">正在检查 API…</string>
+    <string name="settings_api_invalid_url">请输入有效的 API 地址</string>
+    <string name="settings_api_invalid_scheme">API 地址必须使用 HTTP 或 HTTPS</string>
+    <string name="settings_api_http_warning">当前 API 地址使用的是非加密 HTTP，请确认服务端可信。</string>
+    <string name="settings_api_failed_http_message">API 检查失败（HTTP %1$d）：%2$s</string>
+    <string name="settings_api_failed_http">API 检查失败（HTTP %1$d）</string>
+    <string name="settings_api_failed_message">API 检查失败：%1$s</string>
+    <string name="settings_api_failed_generic">API 检查失败，请稍后重试</string>
+    <string name="drawer_search_hint">搜索聊天</string>
+    <string name="drawer_section_recent">最近聊天</string>
+    <string name="drawer_settings">设置</string>
+    <string name="drawer_empty">暂无聊天记录</string>
+    <string name="drawer_empty_search">没有匹配的聊天</string>
+    <string name="drawer_more_actions">更多操作</string>
+    <string name="drawer_delete_conversation">删除对话</string>
+    <string name="drawer_open_navigation">打开导航</string>
+    <string name="top_bar_new_chat">新建聊天</string>
+    <string name="top_bar_history">打开历史记录</string>
+    <string name="top_bar_floating_window">打开悬浮窗</string>
+    <string name="message_thinking_duration_format">思考了 %1$.1f 秒</string>
+    <string name="message_thinking_in_progress">思考中</string>
+
+    <!-- Appearance Settings -->
+    <string name="settings_appearance_title">外观</string>
+    <string name="settings_appearance_theme_mode">主题模式</string>
+    <string name="settings_appearance_theme_system">跟随系统</string>
+    <string name="settings_appearance_theme_light">亮色</string>
+    <string name="settings_appearance_theme_dark">暗色</string>
+    <string name="settings_appearance_theme_palette">配色系统</string>
+    <string name="settings_appearance_theme_palette_summary">配色来源一次只能选择一种：Aries 预设色或系统动态取色。</string>
+    <string name="settings_appearance_theme_palette_default">Aries 默认</string>
+    <string name="settings_appearance_theme_palette_ocean">深海蓝</string>
+    <string name="settings_appearance_theme_palette_forest">森林绿</string>
+    <string name="settings_appearance_theme_palette_sunset">日落橙</string>
+    <string name="settings_appearance_theme_palette_rose">岩玫红</string>
+    <string name="settings_appearance_theme_palette_dynamic">壁纸动态取色</string>
+    <string name="settings_appearance_theme_palette_dynamic_description">使用系统壁纸生成整套 Material You 配色，并停用 Aries 预设色。</string>
+    <string name="settings_appearance_amoled">AMOLED 纯黑</string>
+    <string name="settings_appearance_dynamic_color">动态取色</string>
+    <string name="settings_appearance_font_size">聊天字体大小</string>
+    <string name="settings_appearance_font_size_small">小</string>
+    <string name="settings_appearance_font_size_default">默认</string>
+    <string name="settings_appearance_font_size_large">大</string>
+    <string name="settings_appearance_font_size_xlarge">超大</string>
+    <string name="settings_appearance_font_family">字体</string>
+    <string name="settings_appearance_font_default">默认</string>
+    <string name="settings_appearance_font_sans_serif">无衬线</string>
+    <string name="settings_appearance_font_serif">衬线</string>
+    <string name="settings_appearance_font_monospace">等宽</string>
+    <string name="settings_appearance_code_section">代码块</string>
+    <string name="settings_appearance_code_auto_wrap">自动换行</string>
+    <string name="settings_appearance_code_line_numbers">显示行号</string>
+    <string name="settings_appearance_code_auto_collapse">自动折叠</string>
 </resources>

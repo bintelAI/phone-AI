@@ -1,5 +1,7 @@
 package com.ai.phoneagent.core.utils
 
+import com.ai.phoneagent.data.model.ChatContent
+import com.ai.phoneagent.data.model.ContentPart
 import java.util.concurrent.ConcurrentHashMap
 
 /** 动作工具类 - 动作名称转换、延迟计算等 */
@@ -51,24 +53,18 @@ object ActionUtils {
     /** 估算历史消息的token数量 */
     fun estimateHistoryTokens(
             messages: List<com.ai.phoneagent.net.ChatRequestMessage>,
-            imageTokenEstimate: Int = 1500
+            imageTokenEstimate: Int = 8000
     ): Int {
         var total = 0
         for (msg in messages) {
             val content = msg.content
             when (content) {
-                is String -> total += estimateTokens(content)
-                is List<*> -> {
-                    for (item in content) {
-                        if (item is Map<*, *>) {
-                            @Suppress("UNCHECKED_CAST") val map = item as Map<String, Any>
-                            val type = map["type"]
-                            if (type == "text") {
-                                val text = map["text"] as? String ?: ""
-                                total += estimateTokens(text)
-                            } else if (type == "image_url") {
-                                total += imageTokenEstimate
-                            }
+                is ChatContent.Text -> total += estimateTokens(content.text)
+                is ChatContent.Multimodal -> {
+                    for (part in content.parts) {
+                        when (part) {
+                            is ContentPart.TextPart -> total += estimateTokens(part.text)
+                            is ContentPart.ImageUrlPart -> total += imageTokenEstimate
                         }
                     }
                 }

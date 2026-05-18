@@ -23,12 +23,10 @@ import android.app.ActivityOptions
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.os.Binder
 import android.os.Build
@@ -40,9 +38,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
-import android.view.ContextThemeWrapper
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -50,27 +46,92 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
-import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
-import com.ai.phoneagent.helper.StreamRenderHelper
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.ai.phoneagent.data.preferences.AppPreferencesRepository
+import com.ai.phoneagent.data.preferences.FloatingChatPreferencesRepository
+import com.ai.phoneagent.core.designsystem.theme.AriesMaterialTheme
+import com.ai.phoneagent.core.designsystem.theme.ThemeColorStyle
+import com.ai.phoneagent.core.designsystem.theme.ThemeMode
+import com.ai.phoneagent.net.AriesApiClient
 import com.ai.phoneagent.net.AutoGlmClient
 import com.ai.phoneagent.net.ChatRequestMessage
 import com.ai.phoneagent.net.LocalMnnInferenceEngine
 import com.ai.phoneagent.net.ModelScopeModelDownloader
+import com.ai.phoneagent.viewmodel.AutomationViewModel
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
+import org.koin.android.ext.android.inject
+import kotlin.math.roundToInt
 
 /** 悬浮聊天窗口服务 提供小窗模式的聊天界面和虚拟屏工具箱模式 */
-class FloatingChatService : Service() {
+class FloatingChatService : LifecycleService(), SavedStateRegistryOwner {
+
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateRegistryController.savedStateRegistry
+
+    private val appPrefsRepository by inject<AppPreferencesRepository>()
+    private val floatingChatPrefs by inject<FloatingChatPreferencesRepository>()
 
     companion object {
         private const val TAG = "FloatingChatService"
@@ -114,12 +175,10 @@ class FloatingChatService : Service() {
 
         fun cacheMessagesForNextStart(context: Context, messages: List<String>) {
             runCatching {
-                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val repo = FloatingChatPreferencesRepository(context.applicationContext)
                 val json = com.google.gson.Gson().toJson(messages)
-                prefs.edit()
-                        .putString(PREF_KEY_FLOATING_MESSAGES, json)
-                        .putLong(PREF_KEY_FLOATING_MESSAGES_UPDATED_AT, System.currentTimeMillis())
-                        .apply()
+                repo.setFloatingMessagesBlocking(json)
+                repo.setFloatingMessagesUpdatedAtBlocking(System.currentTimeMillis())
             }
         }
 
@@ -223,7 +282,6 @@ class FloatingChatService : Service() {
 
     private val binder = LocalBinder()
     private lateinit var windowManager: WindowManager
-    private lateinit var prefs: SharedPreferences
     private var floatingView: View? = null
     private var isViewAdded = false
 
@@ -244,9 +302,20 @@ class FloatingChatService : Service() {
     // 窗口参数
     private var layoutParams: WindowManager.LayoutParams? = null
 
+    data class FloatingMessage(
+            val text: String,
+            val isUser: Boolean,
+            val isStreaming: Boolean = false,
+    )
+
     // 消息列表
     private val messages = mutableListOf<String>()
     private val chatHistory = mutableListOf<ChatRequestMessage>() // 用于 AI 对话上下文
+    private val _floatingMessages = mutableStateListOf<FloatingMessage>()
+    private var _streamingBuffer = mutableStateOf("")
+    private var _isStreaming = mutableStateOf(false)
+    private var streamingReasoningText: String = ""
+    private var streamingAnswerText: String = ""
 
     // 工具箱模式相关
     private var isToolboxMode: Boolean = false
@@ -263,26 +332,30 @@ class FloatingChatService : Service() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening: Boolean = false
 
-    private fun getAppPrefs(): SharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-
     private fun m3Color(colorRes: Int): Int = ContextCompat.getColor(this, colorRes)
 
     private fun m3ColorWithAlpha(colorRes: Int, alpha: Int): Int =
             ColorUtils.setAlphaComponent(m3Color(colorRes), alpha.coerceIn(0, 255))
 
     private fun resolveApiConfig(): Triple<String, String, String> {
-            val appPrefs = getAppPrefs()
-            val apiKey = appPrefs.getString("api_key", "")?.trim().orEmpty()
-            val useThirdParty = appPrefs.getBoolean("api_use_third_party", false)
-            val useLocalModel = appPrefs.getBoolean("api_use_local_model", false)
+            val useAriesApi = appPrefsRepository.getUseAriesApiBlocking()
+            val apiKey =
+                    if (useAriesApi) {
+                        appPrefsRepository.getActiveAriesApiKeyBlocking().trim()
+                    } else {
+                        appPrefsRepository.getApiKeyBlocking().trim()
+                    }
+            val useThirdParty = appPrefsRepository.getApiUseThirdPartyBlocking()
+            val useLocalModel = appPrefsRepository.getApiUseLocalModelBlocking()
             val storedThirdPartyBaseUrl =
-                    appPrefs.getString("api_third_party_base_url", AutoGlmClient.DEFAULT_BASE_URL)
-                            ?.trim()
-                            ?.ifBlank { AutoGlmClient.DEFAULT_BASE_URL }
-                            ?: AutoGlmClient.DEFAULT_BASE_URL
+                    appPrefsRepository.getApiThirdPartyBaseUrlBlocking()
+                        .trim()
+                        .ifBlank { AutoGlmClient.DEFAULT_BASE_URL }
             val baseUrl =
                     if (useLocalModel) {
-                        storedThirdPartyBaseUrl
+                        AutoGlmClient.DEFAULT_BASE_URL
+                    } else if (useAriesApi) {
+                        AriesApiClient.ARIES_API_V1_BASE_URL
                     } else if (!useThirdParty) {
                         AutoGlmClient.DEFAULT_BASE_URL
                     } else {
@@ -291,15 +364,21 @@ class FloatingChatService : Service() {
             val model =
                     if (useLocalModel) {
                         ModelScopeModelDownloader.QWEN35_MODEL_NAME
+                    } else if (useAriesApi) {
+                        AriesApiClient.ARIES_CHAT_MODEL
                     } else if (!useThirdParty) {
                         AutoGlmClient.DEFAULT_MODEL
                     } else {
-                        appPrefs.getString("api_third_party_model", AutoGlmClient.DEFAULT_MODEL)
-                                ?.trim()
-                                ?.ifBlank { AutoGlmClient.DEFAULT_MODEL }
-                                ?: AutoGlmClient.DEFAULT_MODEL
+                        appPrefsRepository.getApiThirdPartyModelBlocking()
+                            .trim()
+                            .ifBlank { AutoGlmClient.DEFAULT_MODEL }
                     }
             return Triple(apiKey, baseUrl, model)
+    }
+
+    private fun getStreamingPendingTitle(): String {
+            val useLocalModel = appPrefsRepository.getApiUseLocalModelBlocking()
+            return if (useLocalModel) "本地推理中，请等待" else "连接中"
     }
 
     private var awaitingReturnAck: Boolean = false
@@ -327,13 +406,17 @@ class FloatingChatService : Service() {
         fun getService(): FloatingChatService = this@FloatingChatService
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent): IBinder {
+        super.onBind(intent)
+        return binder
+    }
 
     override fun onCreate() {
+        savedStateRegistryController.performAttach()
+        savedStateRegistryController.performRestore(null)
         super.onCreate()
         instance = this
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        prefs = getSharedPreferences("floating_chat_prefs", Context.MODE_PRIVATE)
 
         restoreWindowState()
         createNotificationChannel()
@@ -811,10 +894,104 @@ class FloatingChatService : Service() {
 
     // 显示聊天窗口（原有逻辑）
     private fun showChatWindow() {
-        val themedContext = ContextThemeWrapper(this, R.style.Theme_PhoneAgent)
-        val inflater = LayoutInflater.from(themedContext)
-        floatingView = inflater.inflate(R.layout.floating_chat_window, null)
-        setupFloatingView()
+        updateMessagesUI()
+        val composeView = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setContent {
+                val themeModeStr by
+                        appPrefsRepository.themeModeFlow.collectAsState(
+                                initial = appPrefsRepository.getThemeModeBlocking()
+                        )
+                val themeColorStyleRaw by
+                    appPrefsRepository.themeColorStyleFlow.collectAsState(
+                    initial = appPrefsRepository.getThemeColorStyleBlocking()
+                    )
+                val amoledDark by
+                        appPrefsRepository.amoledDarkEnabledFlow.collectAsState(
+                                initial = appPrefsRepository.getAmoledDarkEnabledBlocking()
+                        )
+                val themeMode =
+                        when (themeModeStr.lowercase()) {
+                            "light" -> ThemeMode.LIGHT
+                            "dark" -> ThemeMode.DARK
+                            else -> ThemeMode.SYSTEM
+                        }
+                val themeColorStyle = ThemeColorStyle.fromStorage(themeColorStyleRaw)
+
+                AriesMaterialTheme(
+                        themeMode = themeMode,
+                    themeColorStyle = themeColorStyle,
+                        amoledDark = amoledDark,
+                ) {
+                    val listState = rememberLazyListState()
+                    val messages = _floatingMessages
+
+                    Column(
+                            modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        FloatingTitleBar(
+                                onFullscreen = {
+                                    setFocusable(false)
+                                    expandToFullScreen()
+                                },
+                                onClose = { closeWindow() },
+                                modifier =
+                                        Modifier.fillMaxWidth()
+                                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                                .pointerInput(Unit) {
+                                                    detectDragGestures(
+                                                            onDrag = { change, dragAmount ->
+                                                                change.consumeAllChanges()
+                                                                val p =
+                                                                        this@FloatingChatService
+                                                                                .layoutParams
+                                                                                ?: return@detectDragGestures
+                                                                p.x += dragAmount.x.roundToInt()
+                                                                p.y += dragAmount.y.roundToInt()
+                                                                floatingView?.let {
+                                                                    windowManager.updateViewLayout(it, p)
+                                                                }
+                                                                windowX = p.x
+                                                                windowY = p.y
+                                                            },
+                                                            onDragEnd = { saveWindowState() }
+                                                    )
+                                                }
+                        )
+
+                        LazyColumn(
+                                state = listState,
+                                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                        ) {
+                            items(messages) { msg ->
+                                if (msg.isUser) FloatingUserBubble(msg.text)
+                                else FloatingAiBubble(msg.text, msg.isStreaming)
+                            }
+                        }
+
+                        LaunchedEffect(messages.size, messages.lastOrNull()?.text) {
+                            if (messages.isNotEmpty()) {
+                                listState.animateScrollToItem(messages.lastIndex)
+                            }
+                        }
+
+                        FloatingInputBar(
+                                onSend = { text -> sendUserMessage(text) },
+                                onFocused = { setFocusable(true) },
+                                onUnfocused = { setFocusable(false) },
+                                modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+        floatingView = composeView
+        composeView.setViewTreeLifecycleOwner(this)
+        composeView.setViewTreeSavedStateRegistryOwner(this)
         windowManager.addView(floatingView, layoutParams)
         isViewAdded = true
     }
@@ -862,97 +1039,6 @@ class FloatingChatService : Service() {
             }
             start()
         }
-    }
-
-    private fun setupFloatingView() {
-        val view = floatingView ?: return
-
-        // 标题栏拖动
-        val titleBar = view.findViewById<View>(R.id.floatingTitleBar)
-        setupDragBehavior(titleBar)
-
-        // 全屏按钮
-        val btnFullscreen = view.findViewById<ImageButton>(R.id.btnFullscreen)
-        btnFullscreen?.setOnClickListener {
-            setFocusable(false)
-            expandToFullScreen()
-        }
-
-        // 返回主页按钮
-        val btnHome = view.findViewById<ImageButton>(R.id.btnHome)
-        btnHome?.setOnClickListener {
-            setFocusable(false)
-            expandToFullScreen()
-        }
-
-        // 关闭按钮
-        val btnClose = view.findViewById<ImageButton>(R.id.btnClose)
-        btnClose?.setOnClickListener { closeWindow() }
-
-        // 输入框 - 优化键盘呼出响应速度
-        val inputMessage = view.findViewById<EditText>(R.id.inputMessage)
-        if (inputMessage == null) {
-            Log.e(TAG, "Floating window layout missing required view: inputMessage")
-            return
-        }
-
-        // 预先设置为可聚焦模式，避免延迟
-        inputMessage.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                // 立即切换为可聚焦模式
-                setFocusable(true)
-
-                // 关键：切换窗口 flags 后，显式让 EditText 获取焦点并拉起键盘
-                inputMessage.isFocusableInTouchMode = true
-                inputMessage.requestFocus()
-                inputMessage.post {
-                    runCatching {
-                        val imm =
-                                getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                        imm.showSoftInput(inputMessage, InputMethodManager.SHOW_IMPLICIT)
-                    }
-                }
-            }
-            false // 继续传递事件
-        }
-
-        inputMessage.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                // 确保键盘弹出
-                mainHandler.postDelayed(
-                        {
-                            val imm =
-                                    getSystemService(Context.INPUT_METHOD_SERVICE) as
-                                            InputMethodManager
-                            imm.showSoftInput(inputMessage, InputMethodManager.SHOW_IMPLICIT)
-                        },
-                        50
-                )
-            }
-        }
-
-        // 发送按钮
-        val btnSend = view.findViewById<ImageButton>(R.id.btnSend)
-        btnSend?.setOnClickListener {
-            val text = inputMessage.text.toString().trim()
-            if (text.isNotEmpty()) {
-                sendUserMessage(text, inputMessage)
-            }
-        }
-
-        // 监听回车键发送
-        inputMessage.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND) {
-                val text = inputMessage.text.toString().trim()
-                if (text.isNotEmpty()) {
-                    sendUserMessage(text, inputMessage)
-                }
-                true
-            } else false
-        }
-
-        // 更新消息列表
-        updateMessagesUI()
     }
 
     private fun openAppFromFloating(allowProxy: Boolean) {
@@ -1097,14 +1183,9 @@ class FloatingChatService : Service() {
     }
 
     /** 发送用户消息并获取 AI 回复 */
-    private fun sendUserMessage(text: String, inputMessage: EditText) {
+    private fun sendUserMessage(text: String) {
         // 添加用户消息
         addMessage("我: $text", isUser = true)
-        inputMessage.setText("")
-
-        // 隐藏键盘
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(inputMessage.windowToken, 0)
 
         // 已移除: addMessage("Aries: 思考中...", isUser = false, isThinking = true)
 
@@ -1112,13 +1193,10 @@ class FloatingChatService : Service() {
         requestAIResponse(text)
     }
 
-    private var currentStreamViewHolder: StreamRenderHelper.ViewHolder? = null
-
     /** 请求 AI 回复 */
     private fun requestAIResponse(userText: String) {
         val (apiKey, baseUrl, model) = resolveApiConfig()
-        val appPrefs = getAppPrefs()
-        val useLocalModel = appPrefs.getBoolean("api_use_local_model", false)
+        val useLocalModel = appPrefsRepository.getApiUseLocalModelBlocking()
         if (useLocalModel && !ModelScopeModelDownloader.isQwen35ModelReady(this)) {
             addMessage("Aries: 本地模型未就绪，请先在主界面下载模型", isUser = false)
             return
@@ -1148,67 +1226,10 @@ class FloatingChatService : Service() {
         chatHistory.add(ChatRequestMessage(role = "user", content = userText))
 
         serviceScope.launch {
-            // 准备流式渲染视图
-            val container = floatingView?.findViewById<LinearLayout>(R.id.messagesContainer)
-            if (container != null) {
-                withContext(Dispatchers.Main) {
-                    // 使用 Theme.PhoneAgent 包装 Context，防止 Context 引起的崩溃
-                    val contextWrapper =
-                            ContextThemeWrapper(this@FloatingChatService, R.style.Theme_PhoneAgent)
-                    val inflater = LayoutInflater.from(contextWrapper)
-
-                    val aiView =
-                            inflater.inflate(R.layout.item_ai_message_complex, container, false)
-                    container.addView(aiView)
-
-                    val vh = StreamRenderHelper.bindViews(aiView)
-                    StreamRenderHelper.initThinkingState(vh)
-                    currentStreamViewHolder = vh
-
-                    vh.copyButton?.setOnClickListener {
-                        val cm =
-                                getSystemService(android.content.Context.CLIPBOARD_SERVICE) as
-                                        android.content.ClipboardManager
-                        val clip =
-                                android.content.ClipData.newPlainText(
-                                        "AI Reply",
-                                        vh.messageContent.text,
-                                )
-                        cm.setPrimaryClip(clip)
-                        Toast.makeText(this@FloatingChatService, "已复制内容", Toast.LENGTH_SHORT).show()
-                    }
-
-                    vh.retryButton?.setOnClickListener {
-                        // 尝试重新请求最后的 AI 会话
-                        val lastUserMsg = chatHistory.lastOrNull { it.role == "user" }?.content
-                        if (lastUserMsg != null) {
-                            // 先删掉当前失败/空的气泡（即刚才添加的 aiView）
-                            container.removeView(aiView)
-
-                            // 从上下文和本地记录中移除刚才这个还没成功的 assistant 槽位（如果有）
-                            if (chatHistory.lastOrNull()?.role == "assistant") {
-                                chatHistory.removeAt(chatHistory.size - 1)
-                            }
-                            if (messages.lastOrNull()?.startsWith("Aries:") == true) {
-                                messages.removeAt(messages.size - 1)
-                            }
-
-                            // 重试请求
-                            requestAIResponse(lastUserMsg.toString())
-                        } else {
-                            Toast.makeText(this@FloatingChatService, "没有可重试的消息", Toast.LENGTH_SHORT)
-                                    .show()
-                        }
-                    }
-
-                    // 滚动到底部
-                    floatingView
-                            ?.findViewById<ScrollView>(R.id.scrollArea)
-                            ?.fullScroll(View.FOCUS_DOWN)
-                }
+            withContext(Dispatchers.Main) {
+                beginExternalStreamAiReply()
             }
 
-            val vh = currentStreamViewHolder
             val reasoningSb = StringBuilder()
             val contentSb = StringBuilder()
 
@@ -1220,47 +1241,18 @@ class FloatingChatService : Service() {
                         context = this@FloatingChatService,
                         messages = chatHistory,
                         onReasoningDelta = { delta ->
-                            if (delta.isNotBlank() && vh != null) {
+                            if (delta.isNotBlank()) {
                                 reasoningSb.append(delta)
                                 Handler(Looper.getMainLooper()).post {
-                                    StreamRenderHelper.processReasoningDelta(
-                                        vh,
-                                        delta,
-                                        serviceScope
-                                    ) {
-                                        floatingView
-                                            ?.findViewById<ScrollView>(R.id.scrollArea)
-                                            ?.fullScroll(View.FOCUS_DOWN)
-                                    }
+                                    appendExternalReasoningDelta(delta)
                                 }
                             }
                         },
                         onContentDelta = { delta ->
-                            if (delta.isNotEmpty() && vh != null) {
+                            if (delta.isNotEmpty()) {
                                 contentSb.append(delta)
                                 Handler(Looper.getMainLooper()).post {
-                                    StreamRenderHelper.processContentDelta(
-                                        vh,
-                                        delta,
-                                        serviceScope,
-                                        this@FloatingChatService,
-                                        onScroll = {
-                                            floatingView
-                                                ?.findViewById<ScrollView>(R.id.scrollArea)
-                                                ?.fullScroll(View.FOCUS_DOWN)
-                                        },
-                                        onPhaseChange = { isAnswerPhase ->
-                                            if (isAnswerPhase) {
-                                                StreamRenderHelper.transitionToAnswer(vh)
-                                                if (
-                                                    vh.thinkingText.visibility == View.VISIBLE ||
-                                                        vh.thinkingContentArea.visibility == View.VISIBLE
-                                                ) {
-                                                    vh.thinkingHeader.performClick()
-                                                }
-                                            }
-                                        }
-                                    )
+                                    appendExternalContentDelta(delta)
                                 }
                             }
                         }
@@ -1272,47 +1264,18 @@ class FloatingChatService : Service() {
                         model = model,
                         messages = chatHistory,
                         onReasoningDelta = { delta ->
-                            if (delta.isNotBlank() && vh != null) {
+                            if (delta.isNotBlank()) {
                                 reasoningSb.append(delta)
                                 Handler(Looper.getMainLooper()).post {
-                                    StreamRenderHelper.processReasoningDelta(
-                                        vh,
-                                        delta,
-                                        serviceScope
-                                    ) {
-                                        floatingView
-                                            ?.findViewById<ScrollView>(R.id.scrollArea)
-                                            ?.fullScroll(View.FOCUS_DOWN)
-                                    }
+                                    appendExternalReasoningDelta(delta)
                                 }
                             }
                         },
                         onContentDelta = { delta ->
-                            if (delta.isNotEmpty() && vh != null) {
+                            if (delta.isNotEmpty()) {
                                 contentSb.append(delta)
                                 Handler(Looper.getMainLooper()).post {
-                                    StreamRenderHelper.processContentDelta(
-                                        vh,
-                                        delta,
-                                        serviceScope,
-                                        this@FloatingChatService,
-                                        onScroll = {
-                                            floatingView
-                                                ?.findViewById<ScrollView>(R.id.scrollArea)
-                                                ?.fullScroll(View.FOCUS_DOWN)
-                                        },
-                                        onPhaseChange = { isAnswerPhase ->
-                                            if (isAnswerPhase) {
-                                                StreamRenderHelper.transitionToAnswer(vh)
-                                                if (
-                                                    vh.thinkingText.visibility == View.VISIBLE ||
-                                                        vh.thinkingContentArea.visibility == View.VISIBLE
-                                                ) {
-                                                    vh.thinkingHeader.performClick()
-                                                }
-                                            }
-                                        }
-                                    )
+                                    appendExternalContentDelta(delta)
                                 }
                             }
                         }
@@ -1323,21 +1286,8 @@ class FloatingChatService : Service() {
 
             // 结束后整理状态
             withContext(Dispatchers.Main) {
-                if (vh != null) {
-                    StreamRenderHelper.markCompleted(vh, 0)
-                    if (vh.thinkingText.visibility == View.VISIBLE || vh.thinkingContentArea.visibility == View.VISIBLE) {
-                        vh.thinkingHeader.performClick()
-                    }
-                }
-
-                if (!streamOk && contentSb.isEmpty()) {
-                    vh?.messageContent?.text = "连接超时或服务遇到问题，请点击重试。"
-                    vh?.messageContent?.setTextColor(m3Color(R.color.m3t_error))
-                }
-
-                // 获取解析后的内容
-                val thinkingContent = vh?.let { StreamRenderHelper.getThinkingText(it) } ?: ""
-                val renderedAnswer = vh?.let { StreamRenderHelper.getAnswerText(it) }?.trim().orEmpty()
+                val thinkingContent = reasoningSb.toString().trim()
+                val renderedAnswer = extractDisplayAnswer(contentSb.toString()).trim()
                 val fallbackAnswer = extractDisplayAnswer(contentSb.toString()).trim()
                 val answerContent =
                         when {
@@ -1346,10 +1296,6 @@ class FloatingChatService : Service() {
                             streamOk -> contentSb.toString()
                             else -> "请求失败"
                         }
-                if (vh != null && renderedAnswer.isBlank() && answerContent.isNotBlank() && streamOk) {
-                    StreamRenderHelper.applyMarkdownToHistory(vh.messageContent, answerContent)
-                }
-
                 val persistText =
                         if (thinkingContent.isNotEmpty()) {
                             "<think>$thinkingContent</think>\n$answerContent"
@@ -1357,8 +1303,7 @@ class FloatingChatService : Service() {
                             answerContent
                         }
 
-                messages.add("Aries: $persistText")
-                saveMessagesToPrefs()
+                finishExternalStreamAiReply(timeCost = 0, finalContent = persistText)
 
                 chatHistory.add(ChatRequestMessage(role = "assistant", content = persistText))
             }
@@ -1391,94 +1336,51 @@ class FloatingChatService : Service() {
     // --- 外部同步接口 (供 MainActivity 调用) ---
 
     fun beginExternalStreamAiReply() {
-        // 在悬浮窗也准备一个气泡跟随主界面
-        Handler(Looper.getMainLooper()).post {
-            val container =
-                    floatingView?.findViewById<LinearLayout>(R.id.messagesContainer) ?: return@post
-            // 使用主题包装
-            val contextWrapper =
-                    ContextThemeWrapper(this@FloatingChatService, R.style.Theme_PhoneAgent)
-            val inflater = LayoutInflater.from(contextWrapper)
-            val aiView = inflater.inflate(R.layout.item_ai_message_complex, container, false)
-            container.addView(aiView)
-
-            val vh = StreamRenderHelper.bindViews(aiView)
-
-            // 针对小窗优化：缩小文字显示，增加单行容量
-            vh.messageContent.textSize = 13.5f
-            if (vh.thinkingText != null) vh.thinkingText.textSize = 12.5f
-
-            StreamRenderHelper.initThinkingState(vh)
-            currentStreamViewHolder = vh
-
-            floatingView?.findViewById<ScrollView>(R.id.scrollArea)?.fullScroll(View.FOCUS_DOWN)
-        }
+        _isStreaming.value = true
+        _streamingBuffer.value = ""
+        streamingReasoningText = ""
+        streamingAnswerText = ""
+        _floatingMessages.add(FloatingMessage(text = "", isUser = false, isStreaming = true))
     }
 
     fun appendExternalReasoningDelta(delta: String) {
-        val vh = currentStreamViewHolder ?: return
-        Handler(Looper.getMainLooper()).post {
-            StreamRenderHelper.processReasoningDelta(vh, delta, serviceScope) {
-                floatingView?.findViewById<ScrollView>(R.id.scrollArea)?.fullScroll(View.FOCUS_DOWN)
-            }
-        }
+        if (!_isStreaming.value || delta.isEmpty()) return
+        streamingReasoningText += delta
+        updateStreamingMessageText()
     }
 
     fun appendExternalContentDelta(delta: String) {
-        val vh = currentStreamViewHolder ?: return
-        Handler(Looper.getMainLooper()).post {
-            // 使用新的智能解析处理方法
-            StreamRenderHelper.processContentDelta(
-                    vh,
-                    delta,
-                    serviceScope,
-                    this@FloatingChatService,
-                    onScroll = {
-                        floatingView
-                                ?.findViewById<ScrollView>(R.id.scrollArea)
-                                ?.fullScroll(View.FOCUS_DOWN)
-                    },
-                    onPhaseChange = { isAnswerPhase ->
-                        if (isAnswerPhase) {
-                            StreamRenderHelper.transitionToAnswer(vh)
-                            if (vh.thinkingText.visibility == View.VISIBLE || vh.thinkingContentArea.visibility == View.VISIBLE) {
-                                vh.thinkingHeader.performClick()
-                            }
-                        }
-                    }
-            )
-        }
+        if (!_isStreaming.value || delta.isEmpty()) return
+        streamingAnswerText += delta
+        updateStreamingMessageText()
     }
 
     fun resetExternalStreamAiReply() {
-        val vh = currentStreamViewHolder ?: return
-        Handler(Looper.getMainLooper()).post { StreamRenderHelper.initThinkingState(vh) }
+        if (!_isStreaming.value) return
+        _streamingBuffer.value = ""
+        streamingReasoningText = ""
+        streamingAnswerText = ""
+        val streamIndex = _floatingMessages.indexOfLast { !it.isUser && it.isStreaming }
+        if (streamIndex >= 0) {
+            _floatingMessages[streamIndex] = _floatingMessages[streamIndex].copy(text = "")
+        }
     }
 
     fun finishExternalStreamAiReply(timeCost: Int, finalContent: String) {
-        val vh = currentStreamViewHolder ?: return
-        Handler(Looper.getMainLooper()).post {
-            StreamRenderHelper.markCompleted(vh, timeCost.toLong())
-            if (vh.thinkingText.visibility == View.VISIBLE || vh.thinkingContentArea.visibility == View.VISIBLE) {
-                vh.thinkingHeader.performClick()
-            }
-
-            // 获取解析后的内容保存
-            val thinkingContent = StreamRenderHelper.getThinkingText(vh)
-            val answerContent = StreamRenderHelper.getAnswerText(vh)
-
-            val persistText =
-                    if (thinkingContent.isNotEmpty()) {
-                        "<think>$thinkingContent</think>\n$answerContent"
-                    } else if (answerContent.isNotEmpty()) {
-                        answerContent
-                    } else {
-                        finalContent
-                    }
-
-            messages.add("Aries: $persistText")
-            saveMessagesToPrefs()
+        if (!_isStreaming.value) return
+        val persistText = if (finalContent.isNotBlank()) finalContent else _streamingBuffer.value
+        val streamIndex = _floatingMessages.indexOfLast { !it.isUser && it.isStreaming }
+        if (streamIndex >= 0) {
+            _floatingMessages[streamIndex] =
+                    _floatingMessages[streamIndex].copy(text = persistText, isStreaming = false)
+        } else {
+            _floatingMessages.add(FloatingMessage(text = persistText, isUser = false, isStreaming = false))
         }
+
+        _isStreaming.value = false
+        _streamingBuffer.value = persistText
+        messages.add("Aries: $persistText")
+        saveMessagesToPrefs()
     }
 
     /** 设置悬浮窗是否可聚焦（用于键盘输入） */
@@ -1535,116 +1437,8 @@ class FloatingChatService : Service() {
     }
 
     private fun updateMessagesUI() {
-        val container = floatingView?.findViewById<LinearLayout>(R.id.messagesContainer) ?: return
-        container.removeAllViews()
-        val contextWrapper = ContextThemeWrapper(this@FloatingChatService, R.style.Theme_PhoneAgent)
-        val inflater = LayoutInflater.from(contextWrapper)
-
-        for (msg in messages) {
-            // 支持“我:”和“我: ”两种格式
-            val isUser = msg.startsWith("我:") || msg.startsWith("我: ")
-            val normalized = msg.replace(" ", "")
-            val isThinking = normalized == "AI:思考中..." || normalized == "Aries:思考中..."
-
-            if (isThinking) {
-                val textView =
-                        TextView(this).apply {
-                            text = msg
-                            textSize = 12f
-                            setTextColor(m3Color(R.color.m3t_on_surface_variant))
-                            setPadding(16, 6, 16, 6)
-                            setTypeface(null, android.graphics.Typeface.ITALIC)
-                        }
-                container.addView(textView)
-                continue
-            }
-
-            if (isUser) {
-                val content = msg.removePrefix("我: ").removePrefix("我:").trimStart()
-
-                val textView =
-                        TextView(this).apply {
-                            text = content
-                            textSize = 13.5f
-                            setTextColor(m3Color(R.color.m3t_on_surface))
-                            setPadding(16, 6, 16, 6)
-                        }
-                container.addView(textView)
-                continue
-            }
-
-            val content =
-                    msg.removePrefix("AI: ")
-                            .removePrefix("AI:")
-                            .removePrefix("Aries: ")
-                            .removePrefix("Aries:")
-                            .trimStart()
-
-            val aiView = inflater.inflate(R.layout.item_ai_message_complex, container, false)
-            container.addView(aiView)
-
-            val vh = StreamRenderHelper.bindViews(aiView)
-
-            // 针对小窗优化：缩小文字显示，增加单行容量
-            vh.messageContent.textSize = 13.5f
-            vh.thinkingText?.textSize = 12.5f
-
-            vh.authorName.text = "Aries AI"
-            vh.authorName.visibility = View.VISIBLE
-
-            val thinkRegex = "<think>([\\s\\S]*?)</think>([\\s\\S]*)".toRegex()
-            val match = thinkRegex.find(content)
-            val thinkContent = match?.groupValues?.get(1)?.trim()
-            val realContent = match?.groupValues?.get(2)?.trim() ?: content
-
-            if (!thinkContent.isNullOrBlank()) {
-                vh.thinkingLayout.visibility = View.VISIBLE
-                val headerTitle = vh.thinkingHeader.getChildAt(0) as? TextView
-                headerTitle?.text = "已思考"
-
-                var expanded = false
-                vh.thinkingText.visibility = View.GONE
-                vh.thinkingContentArea.visibility = View.GONE
-                vh.thinkingIndicator.text = " ›"
-
-                vh.thinkingHeader.setOnClickListener {
-                    expanded = !expanded
-                    vh.thinkingText.visibility = if (expanded) View.VISIBLE else View.GONE
-                    vh.thinkingContentArea.visibility = if (expanded) View.VISIBLE else View.GONE
-                    vh.thinkingIndicator.text = if (expanded) " ⌄" else " ›"
-                }
-
-                StreamRenderHelper.applyMarkdownToHistory(vh.thinkingText, thinkContent)
-            } else {
-                vh.thinkingLayout.visibility = View.GONE
-            }
-
-            StreamRenderHelper.applyMarkdownToHistory(vh.messageContent, realContent)
-            vh.actionArea.visibility = View.VISIBLE
-            vh.retryButton?.visibility = View.VISIBLE // 修复：小窗模式下显示重试按钮
-            vh.retryButton?.setOnClickListener {
-                // 小窗重试逻辑：发送最后一条用户消息
-                val lastUserMsg =
-                        messages.lastOrNull { it.startsWith("我:") || it.startsWith("我: ") }
-                if (lastUserMsg != null) {
-                    val text = lastUserMsg.removePrefix("我: ").removePrefix("我:").trim()
-                    requestAIResponse(text)
-                }
-            }
-            vh.copyButton?.setOnClickListener {
-                val cm =
-                        getSystemService(android.content.Context.CLIPBOARD_SERVICE) as
-                                android.content.ClipboardManager
-                val clip = android.content.ClipData.newPlainText("AI Reply", realContent)
-                cm.setPrimaryClip(clip)
-                Toast.makeText(this@FloatingChatService, "已复制内容", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // 滚动到底部
-        floatingView?.findViewById<ScrollView>(R.id.scrollArea)?.post {
-            floatingView?.findViewById<ScrollView>(R.id.scrollArea)?.fullScroll(View.FOCUS_DOWN)
-        }
+        _floatingMessages.clear()
+        messages.forEach { appendFloatingMessageFromRaw(it) }
     }
 
     /**
@@ -1655,7 +1449,7 @@ class FloatingChatService : Service() {
      */
     fun addMessage(message: String, isUser: Boolean = false, isThinking: Boolean = false) {
         messages.add(message)
-        updateMessagesUI()
+        appendFloatingMessageFromRaw(message)
 
         // 持久化消息到 SharedPreferences
         saveMessagesToPrefs()
@@ -1673,14 +1467,49 @@ class FloatingChatService : Service() {
         }
     }
 
+    private fun appendFloatingMessageFromRaw(rawMessage: String) {
+        val isUser = rawMessage.startsWith("我:") || rawMessage.startsWith("我: ")
+        val normalized = rawMessage.replace(" ", "")
+        val isThinking = normalized == "AI:思考中..." || normalized == "Aries:思考中..."
+
+        val content =
+                if (isUser) {
+                    rawMessage.removePrefix("我: ").removePrefix("我:").trimStart()
+                } else {
+                    rawMessage.removePrefix("AI: ")
+                            .removePrefix("AI:")
+                            .removePrefix("Aries: ")
+                            .removePrefix("Aries:")
+                            .trimStart()
+                }
+
+        val text = if (isThinking) "思考中..." else content
+        _floatingMessages.add(FloatingMessage(text = text, isUser = isUser, isStreaming = false))
+    }
+
+    private fun updateStreamingMessageText() {
+        val streamIndex = _floatingMessages.indexOfLast { !it.isUser && it.isStreaming }
+        if (streamIndex < 0) return
+
+        val composedText =
+                when {
+                    streamingReasoningText.isNotBlank() && streamingAnswerText.isNotBlank() ->
+                        "<think>${streamingReasoningText}</think>\n$streamingAnswerText"
+                    streamingReasoningText.isNotBlank() ->
+                        "<think>${streamingReasoningText}</think>\n"
+                    else -> streamingAnswerText
+                }
+
+        _streamingBuffer.value = composedText
+        _floatingMessages[streamIndex] = _floatingMessages[streamIndex].copy(text = composedText)
+    }
+
     /** 保存消息到本地存储 */
     private fun saveMessagesToPrefs() {
         try {
             val json = com.google.gson.Gson().toJson(messages)
-            prefs.edit()
-                    .putString("floating_messages", json)
-                    .putLong("floating_messages_updated_at", System.currentTimeMillis())
-                    .apply()
+            floatingChatPrefs.setFloatingMessagesBlocking(json)
+            floatingChatPrefs.setFloatingMessagesUpdatedAtBlocking(System.currentTimeMillis())
         } catch (e: Exception) {
             // ignore
         }
@@ -1689,7 +1518,7 @@ class FloatingChatService : Service() {
     /** 从本地存储恢复消息 */
     private fun restoreMessagesFromPrefs() {
         try {
-            val json = prefs.getString("floating_messages", null) ?: return
+            val json = floatingChatPrefs.getFloatingMessagesBlocking() ?: return
             val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
             val list: List<String> = com.google.gson.Gson().fromJson(json, type) ?: emptyList()
             messages.clear()
@@ -1991,11 +1820,11 @@ class FloatingChatService : Service() {
         // 关闭悬浮窗
         closeWindow()
 
-        // 跳转到 AutomationActivityNew
+        // 跳转到 MainActivity（自动化路由）
         val intent =
-                Intent(this, AutomationActivityNew::class.java).apply {
+                Intent(this, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    putExtra(AutomationActivityNew.EXTRA_FORCE_TOP_ON_ENTRY, true)
+                    putExtra(AutomationViewModel.EXTRA_FORCE_TOP_ON_ENTRY, true)
                 }
         startActivity(intent)
     }
@@ -2003,12 +1832,10 @@ class FloatingChatService : Service() {
     // ============================================================
 
     private fun saveWindowState() {
-        prefs.edit()
-                .putInt("window_x", windowX)
-                .putInt("window_y", windowY)
-                .putInt("window_width", windowWidth)
-                .putInt("window_height", windowHeight)
-                .apply()
+        floatingChatPrefs.setWindowXBlocking(windowX)
+        floatingChatPrefs.setWindowYBlocking(windowY)
+        floatingChatPrefs.setWindowWidthBlocking(windowWidth)
+        floatingChatPrefs.setWindowHeightBlocking(windowHeight)
     }
 
     private fun restoreWindowState() {
@@ -2022,12 +1849,12 @@ class FloatingChatService : Service() {
         val autoWidth = (screenWidthDp * 0.8).toInt().coerceIn(280, 360)
         val autoHeight = (screenHeightDp * 0.52).toInt().coerceIn(340, 480)
 
-        windowWidth = prefs.getInt("window_width", autoWidth)
-        windowHeight = prefs.getInt("window_height", autoHeight)
+        windowWidth = floatingChatPrefs.getWindowWidthBlocking().takeIf { it > 0 } ?: autoWidth
+        windowHeight = floatingChatPrefs.getWindowHeightBlocking().takeIf { it > 0 } ?: autoHeight
 
         // 检查之前保存的坐标是否超出当前屏幕（万一分辨率变了）
         windowX =
-                prefs.getInt("window_x", 100)
+                floatingChatPrefs.getWindowXBlocking()
                         .coerceIn(
                                 0,
                                 maxOf(
@@ -2037,7 +1864,7 @@ class FloatingChatService : Service() {
                                 )
                         )
         windowY =
-                prefs.getInt("window_y", 200)
+                floatingChatPrefs.getWindowYBlocking()
                         .coerceIn(
                                 0,
                                 maxOf(
@@ -2046,5 +1873,217 @@ class FloatingChatService : Service() {
                                                 (windowHeight * displayMetrics.density).toInt()
                                 )
                         )
+    }
+}
+
+@Composable
+private fun FloatingTitleBar(
+        onFullscreen: () -> Unit,
+        onClose: () -> Unit,
+        modifier: Modifier = Modifier,
+) {
+    Row(
+            modifier = modifier.height(40.dp).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+                text = "Aries",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onFullscreen, modifier = Modifier.size(32.dp)) {
+            Icon(
+                    painter = painterResource(id = R.drawable.ic_fullscreen_24),
+                    contentDescription = "展开",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+            )
+        }
+        IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
+            Icon(
+                    painter = painterResource(id = R.drawable.ic_close_24),
+                    contentDescription = "关闭",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingInputBar(
+        onSend: (String) -> Unit,
+        onFocused: () -> Unit,
+        onUnfocused: () -> Unit,
+        modifier: Modifier = Modifier,
+) {
+    var text by remember { mutableStateOf("") }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    Row(
+            modifier =
+                    modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.weight(1f).onFocusChanged { state ->
+                    if (state.isFocused) onFocused() else onUnfocused()
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (text.isNotBlank()) {
+                                onSend(text.trim())
+                                text = ""
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }
+                        }
+                ),
+                decorationBox = { innerTextField ->
+                    Box(
+                            modifier =
+                                    Modifier.fillMaxWidth()
+                                            .background(
+                                                    color =
+                                                            MaterialTheme
+                                                                    .colorScheme
+                                                                    .surfaceContainerHighest,
+                                                    shape = MaterialTheme.shapes.small,
+                                            )
+                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        if (text.isEmpty()) {
+                            Text(
+                                    text = "发消息...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                textStyle =
+                        MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                        ),
+                singleLine = false,
+                maxLines = 4,
+        )
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        IconButton(
+                onClick = {
+                    if (text.isNotBlank()) {
+                        onSend(text.trim())
+                        text = ""
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                    }
+                },
+                modifier = Modifier.size(36.dp),
+                enabled = text.isNotBlank(),
+        ) {
+            Icon(
+                    painter = painterResource(id = R.drawable.ic_send_24),
+                    contentDescription = "发送",
+                    tint =
+                            if (text.isNotBlank()) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingUserBubble(text: String) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).widthIn(max = 240.dp),
+        ) {
+            Text(
+                    text = text,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingAiBubble(text: String, isStreaming: Boolean = false) {
+    val thinkRegex = remember { "<think>([\\s\\S]*?)</think>([\\s\\S]*)".toRegex() }
+    val match = remember(text) { thinkRegex.find(text) }
+    val thinkContent = match?.groupValues?.getOrNull(1)?.trim().orEmpty()
+    val mainContent = match?.groupValues?.getOrNull(2)?.trim().orEmpty().ifBlank {
+        if (match == null) text else ""
+    }
+    val thinkExpandedState = remember(text) { mutableStateOf(false) }
+
+    Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).widthIn(max = 260.dp)) {
+            if (thinkContent.isNotBlank()) {
+                Row(
+                        modifier =
+                                Modifier.clickable {
+                                            thinkExpandedState.value = !thinkExpandedState.value
+                                        }
+                                        .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                            text = "已思考",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                            text = if (thinkExpandedState.value) " ⌄" else " ›",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                if (thinkExpandedState.value) {
+                    Text(
+                            text = thinkContent,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
+            }
+
+            Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                val displayText =
+                        when {
+                            isStreaming && mainContent.isEmpty() && thinkContent.isEmpty() -> "▌"
+                            isStreaming && mainContent.isEmpty() -> "▌"
+                            else -> mainContent
+                        }
+
+                Text(
+                        text = displayText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
     }
 }

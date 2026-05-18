@@ -25,13 +25,20 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Camera
+import com.composables.icons.lucide.Image
+import com.composables.icons.lucide.FileText
+import com.composables.icons.lucide.Monitor
+import com.composables.icons.lucide.Music2
+import com.composables.icons.lucide.Video
+import com.composables.icons.lucide.X
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
@@ -48,7 +55,7 @@ import java.io.File
 
 /**
  * 附件选择器面板 - 千问风格底部弹出
- * 支持拖动关闭、背景变暗（包括状态栏区域）
+ * 支持拖动关闭，不额外覆盖背景内容
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,23 +137,23 @@ fun AttachmentSelectorPanel(
     // 附件选项列表 - 千问风格（移除音频，保留相机/相册/文件）
     val attachmentOptions = listOf(
         AttachmentOption(
-            icon = Icons.Default.PhotoCamera,
+            icon = Lucide.Camera,
             label = "拍照",
             onClick = onCameraClick
         ),
         AttachmentOption(
-            icon = Icons.Default.Image,
+            icon = Lucide.Image,
             label = "相册",
             onClick = launchImagePicker
         ),
         AttachmentOption(
-            icon = Icons.Default.Description,
+            icon = Lucide.FileText,
             label = "文件",
             onClick = { filePickerLauncher.launch("*/*") }
         )
     )
     
-    // 使用 ModalBottomSheet 实现可拖动关闭 + 背景变暗（包括状态栏）
+    // 使用 ModalBottomSheet 实现可拖动关闭，不再叠加整屏遮罩
     if (visible) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
@@ -170,8 +177,7 @@ fun AttachmentSelectorPanel(
                     )
                 }
             },
-            scrimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), // 背景变暗效果（包括状态栏）
-            windowInsets = WindowInsets(0, 0, 0, 0) // 确保遮罩覆盖整个屏幕包括状态栏
+            scrimColor = Color.Transparent
         ) {
             Column(
                 modifier = Modifier
@@ -254,12 +260,12 @@ private fun AttachmentPreviewItem(
     val previewNameColor = colorResource(id = com.ai.phoneagent.R.color.m3t_attachment_preview_name)
     val previewSizeColor = colorResource(id = com.ai.phoneagent.R.color.m3t_attachment_preview_size)
     val icon = when {
-        attachment.fileName.startsWith("camera_") -> Icons.Default.PhotoCamera
-        attachment.mimeType.startsWith("image/") -> Icons.Default.Image
-        attachment.filePath.startsWith("screen_") -> Icons.Default.ScreenshotMonitor
-        attachment.mimeType.startsWith("audio/") -> Icons.Default.AudioFile
-        attachment.mimeType.startsWith("video/") -> Icons.Default.VideoLibrary
-        else -> Icons.Default.Description
+        attachment.fileName.startsWith("camera_") -> Lucide.Camera
+        attachment.mimeType.startsWith("image/") -> Lucide.Image
+        attachment.filePath.startsWith("screen_") -> Lucide.Monitor
+        attachment.mimeType.startsWith("audio/") -> Lucide.Music2
+        attachment.mimeType.startsWith("video/") -> Lucide.Video
+        else -> Lucide.FileText
     }
     
     Box(
@@ -314,7 +320,7 @@ private fun AttachmentPreviewItem(
                 modifier = Modifier.size(24.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = Lucide.X,
                     contentDescription = "移除附件",
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(16.dp)

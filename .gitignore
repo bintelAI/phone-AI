@@ -45,11 +45,35 @@ app/src/main/assets/sherpa-models/**
 !app/src/main/assets/sherpa-models/.keep
 !app/src/main/assets/sherpa-models/README.md
 
+# Local latex library source clone (using Maven dependency instead)
+/latex/
+
 # Local tool configs and secrets
 .opencode/
 AGENTS.md
 analytics.settings
 key/key
+.tmp_material_113/
+.tmp_material_113.zip
+tmp_onboarding_check.png
+
+# Local planning / scratch workspace files
+.sisyphus/
+.qoder/
+nul
+
+# Local test artifacts / temporary outputs
+build.log
+*.tmp
+*.temp
+logcat*.txt
+test-output/
+playwright-report/
+allure-results/
+allure-report/
+coverage/
+*.profraw
+*.profdata
 
 # Local performance profiling artifacts
 Aries-site/lighthouse-*.report.html

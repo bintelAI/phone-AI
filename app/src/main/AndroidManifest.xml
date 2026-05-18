@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- 轻微振动反馈需要声明 VIBRATE 权限（normal 权限，安装时授予） -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- 前台服务权限（Android 14+ 要求） -->
@@ -57,18 +58,11 @@
         </service>
 
         <activity
-            android:name=".AutomationActivityNew"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
             android:name=".LaunchProxyActivity"
             android:exported="false"
             android:theme="@style/Theme.TransparentLaunch"
             android:excludeFromRecents="true"
             android:finishOnTaskLaunch="true"
-            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- 虚拟屏兜底 Activity：独立 taskAffinity，吞掉 Back 键防止虚拟屏黑屏 -->
@@ -91,6 +85,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -99,21 +94,10 @@
         </activity>
 
         <activity
-            android:name=".AboutActivity"
+            android:name=".net.AriesApiOAuthActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-        
-        
-        <activity
-            android:name=".UserAgreementActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
+            android:theme="@style/Theme.PhoneAgent" />
 
-        <activity
-            android:name=".PermissionGuideActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-        
         <!-- FileProvider for camera photos -->
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -124,11 +108,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <activity
-            android:name=".updates.UpdateHistoryActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
 
         <!-- Shizuku Provider - 虚拟屏核心依赖 -->
         <provider
