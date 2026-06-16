@@ -45,6 +45,10 @@ class AppPreferencesRepository(
         val ariesLoggedInUser = stringPreferencesKey("aries_logged_in_user")
         val ariesSelectedModel = stringPreferencesKey("aries_selected_model")
         val ariesApiKey = stringPreferencesKey("aries_api_key")
+        val dimensToken = stringPreferencesKey("dimens_token")
+        val dimensRefreshToken = stringPreferencesKey("dimens_refresh_token")
+        val dimensTeamIds = stringSetPreferencesKey("dimens_team_ids")
+        val dimensCurrentTeamId = stringPreferencesKey("dimens_current_team_id")
 
         // ─── Appearance preferences ──────────────────────────────────────────
         val themeMode = stringPreferencesKey("theme_mode")
@@ -102,6 +106,16 @@ class AppPreferencesRepository(
     val ariesApiKeyFlow: Flow<String> =
         context.appPreferencesDataStore.data.map { prefs ->
             prefs[Keys.ariesApiKey] ?: ""
+        }
+
+    val dimensTokenFlow: Flow<String> =
+        context.appPreferencesDataStore.data.map { prefs ->
+            prefs[Keys.dimensToken] ?: ""
+        }
+
+    val dimensCurrentTeamIdFlow: Flow<String> =
+        context.appPreferencesDataStore.data.map { prefs ->
+            prefs[Keys.dimensCurrentTeamId] ?: ""
         }
 
     val apiThirdPartyBaseUrlFlow: Flow<String> =
@@ -269,13 +283,68 @@ class AppPreferencesRepository(
 
     suspend fun getActiveAriesApiKey(): String {
         val prefs = context.appPreferencesDataStore.data.first()
-        val ariesKey = prefs[Keys.ariesApiKey].orEmpty()
-        if (ariesKey.isNotBlank()) return ariesKey
-        val loggedInUser = prefs[Keys.ariesLoggedInUser].orEmpty()
-        return if (loggedInUser.isNotBlank()) {
-            prefs[Keys.apiKey].orEmpty()
-        } else {
-            ""
+        return prefs[Keys.ariesApiKey].orEmpty()
+    }
+
+    suspend fun setDimensSession(
+        token: String,
+        refreshToken: String,
+        teamIds: List<String>,
+    ) {
+        context.appPreferencesDataStore.edit { prefs ->
+            if (token.isBlank()) prefs.remove(Keys.dimensToken)
+            else prefs[Keys.dimensToken] = token
+
+            if (refreshToken.isBlank()) prefs.remove(Keys.dimensRefreshToken)
+            else prefs[Keys.dimensRefreshToken] = refreshToken
+
+            val normalizedTeamIds = teamIds.map(String::trim).filter(String::isNotBlank).toSet()
+            if (normalizedTeamIds.isEmpty()) {
+                prefs.remove(Keys.dimensTeamIds)
+                prefs.remove(Keys.dimensCurrentTeamId)
+            } else {
+                prefs[Keys.dimensTeamIds] = normalizedTeamIds
+                val current = prefs[Keys.dimensCurrentTeamId].orEmpty()
+                if (current !in normalizedTeamIds) {
+                    prefs[Keys.dimensCurrentTeamId] = normalizedTeamIds.first()
+                }
+            }
+        }
+    }
+
+    suspend fun clearDimensSession() {
+        context.appPreferencesDataStore.edit { prefs ->
+            prefs.remove(Keys.dimensToken)
+            prefs.remove(Keys.dimensRefreshToken)
+            prefs.remove(Keys.dimensTeamIds)
+            prefs.remove(Keys.dimensCurrentTeamId)
+        }
+    }
+
+    suspend fun getDimensToken(): String {
+        val prefs = context.appPreferencesDataStore.data.first()
+        return prefs[Keys.dimensToken] ?: ""
+    }
+
+    suspend fun getDimensRefreshToken(): String {
+        val prefs = context.appPreferencesDataStore.data.first()
+        return prefs[Keys.dimensRefreshToken] ?: ""
+    }
+
+    suspend fun getDimensTeamIds(): Set<String> {
+        val prefs = context.appPreferencesDataStore.data.first()
+        return prefs[Keys.dimensTeamIds] ?: emptySet()
+    }
+
+    suspend fun getDimensCurrentTeamId(): String {
+        val prefs = context.appPreferencesDataStore.data.first()
+        return prefs[Keys.dimensCurrentTeamId] ?: ""
+    }
+
+    suspend fun setDimensCurrentTeamId(value: String) {
+        context.appPreferencesDataStore.edit { prefs ->
+            if (value.isBlank()) prefs.remove(Keys.dimensCurrentTeamId)
+            else prefs[Keys.dimensCurrentTeamId] = value
         }
     }
 
@@ -543,6 +612,12 @@ class AppPreferencesRepository(
     fun getAriesApiKeyBlocking(): String = runBlocking { getAriesApiKey() }
     fun setAriesApiKeyBlocking(value: String) = runBlocking { setAriesApiKey(value) }
     fun getActiveAriesApiKeyBlocking(): String = runBlocking { getActiveAriesApiKey() }
+    fun getDimensTokenBlocking(): String = runBlocking { getDimensToken() }
+    fun getDimensRefreshTokenBlocking(): String = runBlocking { getDimensRefreshToken() }
+    fun getDimensTeamIdsBlocking(): Set<String> = runBlocking { getDimensTeamIds() }
+    fun getDimensCurrentTeamIdBlocking(): String = runBlocking { getDimensCurrentTeamId() }
+    fun setDimensCurrentTeamIdBlocking(value: String) = runBlocking { setDimensCurrentTeamId(value) }
+    fun clearDimensSessionBlocking() = runBlocking { clearDimensSession() }
     fun getApiThirdPartyBaseUrlBlocking(): String = runBlocking {
         context.appPreferencesDataStore.data.first()[Keys.apiThirdPartyBaseUrl] ?: ""
     }

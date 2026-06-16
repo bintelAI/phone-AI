@@ -66,6 +66,13 @@ android {
         buildConfigField("String", "ARIES_LOGTO_APP_ID", "\"${escapedBuildConfigString(localProperty("aries.logto.appId", "ynaappkxpdyahwo8m81ja"))}\"")
         buildConfigField("String", "ARIES_LOGTO_REDIRECT_URI", "\"io.logto.android://com.ai.phoneagent/callback\"")
         buildConfigField("String", "ARIES_LOGTO_API_RESOURCE", "\"${escapedBuildConfigString(localProperty("aries.logto.apiResource", "https://api.aries.org.cn/"))}\"")
+        buildConfigField("String", "DIMENS_BASE_URL", "\"${escapedBuildConfigString(localProperty("dimens.baseUrl", "http://10.0.2.2:8001"))}\"")
+        buildConfigField("String", "CASDOOR_ENDPOINT", "\"${escapedBuildConfigString(localProperty("casdoor.endpoint"))}\"")
+        buildConfigField("String", "CASDOOR_CLIENT_ID", "\"${escapedBuildConfigString(localProperty("casdoor.clientId"))}\"")
+        buildConfigField("String", "CASDOOR_ORGANIZATION_NAME", "\"${escapedBuildConfigString(localProperty("casdoor.organizationName"))}\"")
+        buildConfigField("String", "CASDOOR_APP_NAME", "\"${escapedBuildConfigString(localProperty("casdoor.appName"))}\"")
+        buildConfigField("String", "CASDOOR_REDIRECT_URI", "\"${escapedBuildConfigString(localProperty("casdoor.redirectUri"))}\"")
+        buildConfigField("String", "CASDOOR_SCOPE", "\"${escapedBuildConfigString(localProperty("casdoor.scope", "openid profile email offline_access"))}\"")
         buildConfigField(
             "String",
             "TELEMETRY_HEARTBEAT_ENDPOINT",
@@ -172,6 +179,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("org.casbin:casdoor-android-sdk:0.0.1")
     implementation("io.logto.sdk:android:1.1.3")
 
     // 后台任务（便于自动化/定时流程）

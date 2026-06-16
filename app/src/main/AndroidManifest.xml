@@ -98,6 +98,11 @@
             android:exported="false"
             android:theme="@style/Theme.PhoneAgent" />
 
+        <activity
+            android:name=".net.CasdoorOAuthActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PhoneAgent" />
+
         <!-- FileProvider for camera photos -->
         <provider
             android:name="androidx.core.content.FileProvider"

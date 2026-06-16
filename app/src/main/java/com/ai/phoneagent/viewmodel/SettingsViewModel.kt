@@ -363,7 +363,7 @@ class SettingsViewModel(
         if (useAriesApi) {
             val key = prefs.getActiveAriesApiKeyBlocking().trim()
             if (key.isBlank()) {
-                onToast(stringRes(R.string.settings_model_api_aries_login_required))
+                onToast(stringRes(R.string.settings_model_api_aries_model_key_required))
                 return
             }
             startApiCheck(
@@ -508,12 +508,14 @@ class SettingsViewModel(
     fun updateStatusText() {
         if (useAriesApi) {
             val hasAriesKey = prefs.getActiveAriesApiKeyBlocking().isNotBlank()
-            apiStatusPositive = remoteApiOk == true || (remoteApiOk == null && hasAriesKey)
+            val hasDimensSession = prefs.getDimensTokenBlocking().isNotBlank()
+            apiStatusPositive = remoteApiOk == true || (remoteApiOk == null && (hasAriesKey || hasDimensSession))
             if (!remoteApiChecking) {
                 apiStatusText =
                     when {
                         remoteApiOk == true -> stringRes(R.string.settings_api_available)
                         remoteApiOk == false -> stringRes(R.string.settings_api_failed)
+                        hasDimensSession -> stringRes(R.string.settings_model_api_aries_ready)
                         hasAriesKey -> stringRes(R.string.settings_model_api_aries_ready)
                         else -> stringRes(R.string.settings_model_api_aries_login_required)
                     }
@@ -651,7 +653,11 @@ class SettingsViewModel(
             val result = ariesOidcAuthManager.signIn(activity)
             ariesLoginLoading = false
             if (result.success) {
-                prefs.setAriesApiKey(result.accessToken)
+                prefs.setDimensSession(
+                    token = result.accessToken,
+                    refreshToken = result.refreshToken,
+                    teamIds = result.teamIds,
+                )
                 val displayName = result.displayName.ifBlank { stringRes(R.string.aries_sso_user_display) }
                 prefs.setAriesLoggedInUser(displayName)
                 applyApiModeState(ApiMode.Aries)
@@ -674,7 +680,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             ariesOidcAuthManager.signOut()
             prefs.setAriesLoggedInUser("")
-            prefs.setAriesApiKey("")
+            prefs.clearDimensSession()
             ariesLoggedInUser = ""
             if (currentApiMode == ApiMode.Aries) {
                 applyApiModeState(ApiMode.Official)
